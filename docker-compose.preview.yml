@@ -1,0 +1,16 @@
+services:
+  web:
+    image: ${IMAGE}
+    restart: unless-stopped
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${APP_ROUTER}.rule=Host(`${PREVIEW_HOST}`)"
+      - "traefik.http.routers.${APP_ROUTER}.entrypoints=web"
+      - "traefik.http.services.${APP_ROUTER}.loadbalancer.server.port=8080"
+
+networks:
+  traefik:
+    external: true
+    name: traefik
