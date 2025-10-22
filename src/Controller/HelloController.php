@@ -9,6 +9,6 @@ class HelloController
     #[Route('/', name: 'home')]
     public function __invoke(): Response
     {
-        return new Response('Hello CI/CD 🎉');
+        return new Response('Hello CI/CD from PR 🎯');
     }
 }

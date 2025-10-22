@@ -11,13 +11,21 @@ jobs:
     runs-on: self-hosted
 
     env:
-      IMAGE: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:pr-${{ github.event.number }}-${{ github.sha }}
       APP_ROUTER: myapp-pr-${{ github.event.number }}
       PREVIEW_HOST: pr-${{ github.event.number }}.myapp.127.0.0.1.sslip.io
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Calcule un chemin GHCR tout en minuscules + le tag de l'image
+      - name: Compute image tag (lowercase GHCR path)
+        id: meta
+        run: |
+          REPO_SLUG=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
+          IMAGE="ghcr.io/${REPO_SLUG}:pr-${{ github.event.number }}-${{ github.sha }}"
+          echo "repo_slug=${REPO_SLUG}" >> "$GITHUB_OUTPUT"
+          echo "image=${IMAGE}"       >> "$GITHUB_OUTPUT"
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -31,15 +39,19 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.IMAGE }}
+          tags: ${{ steps.meta.outputs.image }}
 
       - name: Deploy preview (Compose up)
         run: |
-          export IMAGE="${IMAGE}"
+          export IMAGE="${{ steps.meta.outputs.image }}"
           export APP_ROUTER="${APP_ROUTER}"
           export PREVIEW_HOST="${PREVIEW_HOST}"
-          docker compose -p myapp_pr-${{ github.event.number }} -f docker-compose.preview.yml pull || true
-          docker compose -p myapp_pr-${{ github.event.number }} -f docker-compose.preview.yml up -d
+
+          docker compose -p myapp_pr-${{ github.event.number }} \
+            -f docker-compose.preview.yml pull || true
+
+          docker compose -p myapp_pr-${{ github.event.number }} \
+            -f docker-compose.preview.yml up -d
 
       - name: Comment URL on PR
         uses: actions/github-script@v7
@@ -59,4 +71,5 @@ jobs:
     steps:
       - name: Teardown (Compose down)
         run: |
-          docker compose -p myapp_pr-${{ github.event.number }} -f docker-compose.preview.yml down -v || true
+          docker compose -p myapp_pr-${{ github.event.number }} \
+            -f docker-compose.preview.yml down -v || true
